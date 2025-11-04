@@ -1,0 +1,16 @@
+# Lightweight web server for our AI agents
+flask
+# For making HTTP requests (to download images)
+requests
+# For lightweight, CPU-based NER
+spacy
+# For geocoding (turning 'Paris' into lat/lon)
+geopy
+# Geopandas for any GIS file ops (geopy is for API lookups)
+geopandas
+# Pure Python EXIF/Image library (replaces pyexiftool)
+Pillow
+# Optional: CrewAI, if you add the advanced module
+# crewai
+# crewai-tools
+# langchain-community
