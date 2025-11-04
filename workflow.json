@@ -1,300 +1,496 @@
 {
-  "name": "Geo-Inference Demo (Fixed)",
+  "name": "Geo-Inference Demo (Webhook Ready)",
   "nodes": [
     {
-      "parameters": {},
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "geo-inference",
+        "responseMode": "responseNode",
+        "options": {}
+      },
       "id": "1",
-      "name": "Start",
-      "type": "n8n-nodes-base.start",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
       "typeVersion": 1,
-      "position": [240, 300]
+      "position": [240, 300],
+      "webhookId": "geo-inference-webhook"
     },
     {
-      "parameters": {},
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "text_content",
+              "name": "text_content",
+              "value": "={{ $json.body.text_content || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "image_url",
+              "name": "image_url",
+              "value": "={{ $json.body.image_url || '' }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
       "id": "2",
-      "name": "Manual Trigger",
-      "type": "n8n-nodes-base.manualTrigger",
-      "typeVersion": 1,
+      "name": "Extract Input Data",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.2,
       "position": [460, 300]
     },
     {
       "parameters": {
-        "values": {
-          "string": [
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
             {
-              "name": "text_content",
-              "value": "I took this photo on a trip to Paris."
-            },
-            {
-              "name": "image_url",
-              "value": "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a8/Tour_Eiffel_Wikimedia_Commons.jpg/800px-Tour_Eiffel_Wikimedia_Commons.jpg"
+              "id": "cond1",
+              "leftValue": "={{ $json.text_content }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
             }
-          ]
-        }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
       },
       "id": "3",
-      "name": "Set Input Data",
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 3,
+      "name": "Has Text?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
       "position": [680, 300]
     },
     {
       "parameters": {
         "conditions": {
-          "options": {},
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
           "conditions": [
             {
-              "boolean": [
-                { "value1": "={{ $json.text_content }}", "operation": "isNotEmpty" },
-                { "value1": "={{ $json.image_url }}", "operation": "isNotEmpty" }
-              ]
+              "id": "cond2",
+              "leftValue": "={{ $json.image_url }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
             }
           ],
           "combinator": "or"
-        }
+        },
+        "options": {}
       },
       "id": "4",
-      "name": "Check Input",
+      "name": "Has Image?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [920, 300]
+      "position": [680, 500]
     },
     {
       "parameters": {
         "url": "http://localhost:5001/ner",
         "sendBody": true,
-        "options": { "body": "={{ {\"text\": $json.text_content} }}" },
-        "response": { "response": { "returnFull": true } }
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"text\": $json.text_content } }}",
+        "options": {}
       },
       "id": "5",
       "name": "Call NER Agent",
       "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.1,
-      "position": [1180, 180],
-      "credentials": {}
+      "typeVersion": 4.2,
+      "position": [920, 180]
     },
     {
       "parameters": {
         "url": "http://localhost:5001/exif",
         "sendBody": true,
-        "options": { "body": "={{ {\"image_url\": $json.image_url} }}" },
-        "response": { "response": { "returnFull": true } }
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"image_url\": $json.image_url } }}",
+        "options": {}
       },
       "id": "6",
       "name": "Call Exif Agent",
       "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.1,
-      "position": [1180, 420],
-      "credentials": {}
+      "typeVersion": 4.2,
+      "position": [920, 500]
     },
     {
-      "parameters": { "mode": "wait" },
+      "parameters": {
+        "mode": "combine",
+        "combinationMode": "mergeByPosition",
+        "options": {}
+      },
       "id": "7",
       "name": "Merge Clues",
       "type": "n8n-nodes-base.merge",
-      "typeVersion": 1.1,
-      "position": [1420, 300]
+      "typeVersion": 2.1,
+      "position": [1160, 340]
     },
     {
       "parameters": {
         "conditions": {
-          "options": {},
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
           "conditions": [
             {
-              "boolean": [
-                {
-                  "value1": "={{ $items('Call Exif Agent')[0].json.body.gps.lat }}",
-                  "operation": "isNotNull"
-                }
-              ]
+              "id": "gps_check",
+              "leftValue": "={{ $('Call Exif Agent').item.json.gps?.lat }}",
+              "rightValue": "",
+              "operator": {
+                "type": "any",
+                "operation": "exists"
+              }
             }
           ]
-        }
+        },
+        "options": {}
       },
       "id": "8",
       "name": "Found GPS?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [1660, 300]
+      "position": [1380, 340]
     },
     {
       "parameters": {
-        "options": { "keepOnlySet": true },
-        "values": {
-          "string": [
-            { "name": "analysis_type", "value": "Direct GPS Match from Image" },
-            { "name": "final_lat", "value": "={{ $items('Call Exif Agent')[0].json.body.gps.lat }}" },
-            { "name": "final_lon", "value": "={{ $items('Call Exif Agent')[0].json.body.gps.lon }}" }
-          ],
-          "json": [
-            { "name": "source_data", "value": "={{ $items('Call Exif Agent')[0].json.body.gps }}" }
+        "assignments": {
+          "assignments": [
+            {
+              "id": "analysis",
+              "name": "analysis_type",
+              "value": "Direct GPS Match from Image",
+              "type": "string"
+            },
+            {
+              "id": "lat",
+              "name": "final_lat",
+              "value": "={{ $('Call Exif Agent').item.json.gps.lat }}",
+              "type": "string"
+            },
+            {
+              "id": "lon",
+              "name": "final_lon",
+              "value": "={{ $('Call Exif Agent').item.json.gps.lon }}",
+              "type": "string"
+            },
+            {
+              "id": "source",
+              "name": "source_data",
+              "value": "={{ $('Call Exif Agent').item.json.gps }}",
+              "type": "object"
+            }
           ]
-        }
+        },
+        "options": {}
       },
       "id": "9",
       "name": "Set: Direct Hit",
       "type": "n8n-nodes-base.set",
-      "typeVersion": 3,
-      "position": [1880, 180]
+      "typeVersion": 3.2,
+      "position": [1600, 220]
     },
     {
       "parameters": {
         "conditions": {
-          "options": {},
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
           "conditions": [
             {
-              "number": [
-                {
-                  "value1": "={{ $items('Call NER Agent')[0].json.body.locations.length }}",
-                  "operation": "larger",
-                  "value2": 0
-                }
-              ]
+              "id": "ner_check",
+              "leftValue": "={{ $('Call NER Agent').item.json.locations?.length || 0 }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
             }
           ]
-        }
+        },
+        "options": {}
       },
       "id": "10",
       "name": "Found NER?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [1880, 420]
+      "position": [1600, 460]
     },
     {
       "parameters": {
         "url": "http://localhost:5001/gis",
         "sendBody": true,
-        "options": {
-          "body": "={{ {\"location_name\": $items('Call NER Agent')[0].json.body.locations[0]} }}"
-        },
-        "response": { "response": { "returnFull": true } }
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"location_name\": $('Call NER Agent').item.json.locations[0] } }}",
+        "options": {}
       },
       "id": "11",
       "name": "Call GIS Agent",
       "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.1,
-      "position": [2120, 420],
-      "credentials": {}
+      "typeVersion": 4.2,
+      "position": [1840, 380]
     },
     {
       "parameters": {
-        "options": { "keepOnlySet": true },
-        "values": {
-          "string": [
-            { "name": "analysis_type", "value": "Inferred from Text (GIS Lookup)" },
-            { "name": "final_lat", "value": "={{ $items('Call GIS Agent')[0].json.body.results[0].lat }}" },
-            { "name": "final_lon", "value": "={{ $items('Call GIS Agent')[0].json.body.results[0].lon }}" }
-          ],
-          "json": [
-            { "name": "source_data", "value": "={{ $items('Call GIS Agent')[0].json.body.results[0] }}" }
+        "assignments": {
+          "assignments": [
+            {
+              "id": "analysis2",
+              "name": "analysis_type",
+              "value": "Inferred from Text (GIS Lookup)",
+              "type": "string"
+            },
+            {
+              "id": "lat2",
+              "name": "final_lat",
+              "value": "={{ $json.results[0].lat }}",
+              "type": "string"
+            },
+            {
+              "id": "lon2",
+              "name": "final_lon",
+              "value": "={{ $json.results[0].lon }}",
+              "type": "string"
+            },
+            {
+              "id": "source2",
+              "name": "source_data",
+              "value": "={{ $json.results[0] }}",
+              "type": "object"
+            }
           ]
-        }
+        },
+        "options": {}
       },
       "id": "12",
       "name": "Set: Text Hit",
       "type": "n8n-nodes-base.set",
-      "typeVersion": 3,
-      "position": [2360, 420]
+      "typeVersion": 3.2,
+      "position": [2060, 380]
     },
     {
       "parameters": {
-        "options": { "keepOnlySet": true },
-        "values": {
-          "string": [{ "name": "analysis_type", "value": "No Clues Found" }],
-          "json": [{ "name": "source_data", "value": "{}" }]
-        }
+        "assignments": {
+          "assignments": [
+            {
+              "id": "analysis3",
+              "name": "analysis_type",
+              "value": "No Clues Found",
+              "type": "string"
+            },
+            {
+              "id": "source3",
+              "name": "source_data",
+              "value": "={}",
+              "type": "object"
+            },
+            {
+              "id": "lat3",
+              "name": "final_lat",
+              "value": "",
+              "type": "string"
+            },
+            {
+              "id": "lon3",
+              "name": "final_lon",
+              "value": "",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
       },
       "id": "13",
       "name": "Set: No Hit",
       "type": "n8n-nodes-base.set",
-      "typeVersion": 3,
-      "position": [2120, 560]
-    },
-    {
-      "parameters": { "mode": "wait" },
-      "id": "14",
-      "name": "Merge Findings",
-      "type": "n8n-nodes-base.merge",
-      "typeVersion": 1.1,
-      "position": [2580, 300]
+      "typeVersion": 3.2,
+      "position": [1840, 540]
     },
     {
       "parameters": {
-        "options": {
-          "importData": true,
-          "import": "={{ {\n\"text\": $items('Set Input Data')[0].json.text_content,\n\"image\": $items('Set Input Data')[0].json.image_url,\n\"analysis\": $json.analysis_type,\n\"location\": $json.source_data.address || $json.analysis_type,\n\"lat\": $json.final_lat || null,\n\"lon\": $json.final_lon || null\n} }}"
+        "mode": "combine",
+        "combinationMode": "mergeByPosition",
+        "options": {}
+      },
+      "id": "14",
+      "name": "Merge Findings",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 2.1,
+      "position": [2280, 340]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "prompt_field",
+              "name": "prompt",
+              "value": "=Based on the following data, provide a creative narrative about this location:\n\nText: {{ $('Extract Input Data').item.json.text_content }}\nImage URL: {{ $('Extract Input Data').item.json.image_url }}\nAnalysis Type: {{ $json.analysis_type }}\nLocation: {{ $json.source_data.address || $json.analysis_type }}\nLatitude: {{ $json.final_lat || 'N/A' }}\nLongitude: {{ $json.final_lon || 'N/A' }}\n\nCreate an engaging story about this location:",
+              "type": "string"
+            },
+            {
+              "id": "metadata",
+              "name": "metadata",
+              "value": "={{ {\n  \"text\": $('Extract Input Data').item.json.text_content,\n  \"image\": $('Extract Input Data').item.json.image_url,\n  \"analysis\": $json.analysis_type,\n  \"location\": $json.source_data.address || $json.analysis_type,\n  \"lat\": $json.final_lat || null,\n  \"lon\": $json.final_lon || null\n} }}",
+              "type": "object"
+            }
+          ]
         },
-        "values": { "string": [{ "name": "prompt", "value": "" }] }
+        "options": {}
       },
       "id": "15",
       "name": "Build Phi-3 Prompt",
       "type": "n8n-nodes-base.set",
-      "typeVersion": 3,
-      "position": [2820, 300]
+      "typeVersion": 3.2,
+      "position": [2500, 340]
     },
     {
       "parameters": {
         "url": "http://localhost:11434/api/generate",
         "sendBody": true,
-        "options": {
-          "body": "={{ {\"model\": \"phi3:mini\", \"stream\": false, \"prompt\": $json.prompt} }}"
-        },
-        "response": { "response": { "returnFull": true } }
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"model\": \"phi3:mini\", \"stream\": false, \"prompt\": $json.prompt } }}",
+        "options": {}
       },
       "id": "16",
       "name": "Call Hyperstition Drive (Phi-3)",
       "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.1,
-      "position": [3040, 300],
-      "credentials": {}
+      "typeVersion": 4.2,
+      "position": [2720, 340]
     },
     {
-      "parameters": { "jsCode": "return $json.body;" },
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "final_response",
+              "name": "response",
+              "value": "={{ $json.response }}",
+              "type": "string"
+            },
+            {
+              "id": "final_metadata",
+              "name": "metadata",
+              "value": "={{ $('Build Phi-3 Prompt').item.json.metadata }}",
+              "type": "object"
+            },
+            {
+              "id": "success",
+              "name": "success",
+              "value": true,
+              "type": "boolean"
+            }
+          ]
+        },
+        "options": {}
+      },
       "id": "17",
-      "name": "Final Output",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [3260, 300]
+      "name": "Format Final Output",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.2,
+      "position": [2940, 340]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "id": "18",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [3160, 340]
     }
   ],
   "connections": {
-    "Start": { "main": [[{ "node": "Manual Trigger", "index": 0 }]] },
-    "Manual Trigger": { "main": [[{ "node": "Set Input Data", "index": 0 }]] },
-    "Set Input Data": { "main": [[{ "node": "Check Input", "index": 0 }]] },
-    "Check Input": {
+    "Webhook": {
+      "main": [[{ "node": "Extract Input Data", "type": "main", "index": 0 }]]
+    },
+    "Extract Input Data": {
       "main": [
-        [{ "node": "Call NER Agent", "index": 0 }],
-        [{ "node": "Call Exif Agent", "index": 0 }]
+        [
+          { "node": "Has Text?", "type": "main", "index": 0 },
+          { "node": "Has Image?", "type": "main", "index": 0 }
+        ]
       ]
     },
-    "Call NER Agent": { "main": [[{ "node": "Merge Clues", "index": 0 }]] },
-    "Call Exif Agent": { "main": [[{ "node": "Merge Clues", "index": 1 }]] },
-    "Merge Clues": { "main": [[{ "node": "Found GPS?", "index": 0 }]] },
+    "Has Text?": {
+      "main": [[{ "node": "Call NER Agent", "type": "main", "index": 0 }]]
+    },
+    "Has Image?": {
+      "main": [[{ "node": "Call Exif Agent", "type": "main", "index": 0 }]]
+    },
+    "Call NER Agent": {
+      "main": [[{ "node": "Merge Clues", "type": "main", "index": 0 }]]
+    },
+    "Call Exif Agent": {
+      "main": [[{ "node": "Merge Clues", "type": "main", "index": 1 }]]
+    },
+    "Merge Clues": {
+      "main": [[{ "node": "Found GPS?", "type": "main", "index": 0 }]]
+    },
     "Found GPS?": {
       "main": [
-        [{ "node": "Set: Direct Hit", "index": 0 }],
-        [{ "node": "Found NER?", "index": 0 }]
+        [{ "node": "Set: Direct Hit", "type": "main", "index": 0 }],
+        [{ "node": "Found NER?", "type": "main", "index": 0 }]
       ]
+    },
+    "Set: Direct Hit": {
+      "main": [[{ "node": "Merge Findings", "type": "main", "index": 0 }]]
     },
     "Found NER?": {
       "main": [
-        [{ "node": "Call GIS Agent", "index": 0 }],
-        [{ "node": "Set: No Hit", "index": 0 }]
+        [{ "node": "Call GIS Agent", "type": "main", "index": 0 }],
+        [{ "node": "Set: No Hit", "type": "main", "index": 0 }]
       ]
     },
-    "Call GIS Agent": { "main": [[{ "node": "Set: Text Hit", "index": 0 }]] },
-    "Set: Direct Hit": { "main": [[{ "node": "Merge Findings", "index": 0 }]] },
-    "Set: Text Hit": { "main": [[{ "node": "Merge Findings", "index": 1 }]] },
-    "Set: No Hit": { "main": [[{ "node": "Merge Findings", "index": 2 }]] },
-    "Merge Findings": { "main": [[{ "node": "Build Phi-3 Prompt", "index": 0 }]] },
+    "Call GIS Agent": {
+      "main": [[{ "node": "Set: Text Hit", "type": "main", "index": 0 }]]
+    },
+    "Set: Text Hit": {
+      "main": [[{ "node": "Merge Findings", "type": "main", "index": 1 }]]
+    },
+    "Set: No Hit": {
+      "main": [[{ "node": "Merge Findings", "type": "main", "index": 2 }]]
+    },
+    "Merge Findings": {
+      "main": [[{ "node": "Build Phi-3 Prompt", "type": "main", "index": 0 }]]
+    },
     "Build Phi-3 Prompt": {
-      "main": [[{ "node": "Call Hyperstition Drive (Phi-3)", "index": 0 }]]
+      "main": [[{ "node": "Call Hyperstition Drive (Phi-3)", "type": "main", "index": 0 }]]
     },
     "Call Hyperstition Drive (Phi-3)": {
-      "main": [[{ "node": "Final Output", "index": 0 }]]
+      "main": [[{ "node": "Format Final Output", "type": "main", "index": 0 }]]
+    },
+    "Format Final Output": {
+      "main": [[{ "node": "Respond to Webhook", "type": "main", "index": 0 }]]
     }
   },
-  "active": false,
-  "settings": {},
-  "versionId": "geo-demo-fixed"
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 0,
+  "updatedAt": "2025-11-04T00:00:00.000Z",
+  "versionId": "geo-webhook-ready"
 }
